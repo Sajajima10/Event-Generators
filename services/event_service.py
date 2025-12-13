@@ -34,7 +34,7 @@ class EventService:
                 event.updated_at
             )
             
-            # IMPORTANTE: fetch=True para obtener el lastrowid
+            # fetch=True para obtener el ID insertado
             event_id = self.db.execute_query(query, params, fetch=True)
             
             if event_id:
@@ -51,6 +51,22 @@ class EventService:
         except Exception as e:
             logger.error(f"Error al crear evento: {e}")
             return None
+
+    def create_batch_events(self, events: List[Event]) -> int:
+        """Crea múltiples eventos secuencialmente. Retorna la cantidad creada."""
+        count = 0
+        try:
+            logger.info(f"Iniciando carga masiva de {len(events)} eventos")
+            for event in events:
+                created = self.create_event(event)
+                if created:
+                    count += 1
+            
+            logger.info(f"Carga masiva completada: {count}/{len(events)} creados")
+            return count
+        except Exception as e:
+            logger.error(f"Error en creación por lotes: {e}")
+            return count
     
     def get_event(self, event_id: int) -> Optional[Event]:
         try:
@@ -123,7 +139,7 @@ class EventService:
                 if 'resource_ids' in updates:
                     self._update_event_resources(event_id, updates['resource_ids'])
                 
-                self._log_event_action(event_id, "updated", f"Datos actualizados: {updates.keys()}")
+                self._log_event_action(event_id, "updated", f"Datos actualizados: {list(updates.keys())}")
                 return True
             
             return False
@@ -204,12 +220,10 @@ class EventService:
         current_result = self.db.execute_query(current_query, (event_id,), fetch=True)
         current_ids = [r['resource_id'] for r in current_result] if current_result else []
         
-        # Agregar nuevos
         for resource_id in new_resource_ids:
             if resource_id not in current_ids:
                 self.assign_resource_to_event(event_id, resource_id)
         
-        # Eliminar viejos
         for resource_id in current_ids:
             if resource_id not in new_resource_ids:
                 self.remove_resource_from_event(event_id, resource_id)
