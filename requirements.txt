@@ -1,18 +1,9 @@
 # === DEPENDENCIAS PRINCIPALES ===
-mariadb==1.1.8                # Conector MariaDB/MySQL
-python-dotenv==1.0.0          # Variables de entorno
-tabulate==0.9.0               # Tablas en consola
-colorama==0.4.6               # Colores en terminal
-pyfiglet==0.8.post1           # ASCII art para títulos
+mariadb==1.1.8
+python-dotenv==1.0.0
+tabulate==0.9.0
+colorama==0.4.6
+pyfiglet==0.8.post1
 
 # === MANEJO DE FECHAS/HORAS ===
-python-dateutil==2.8.2        # Parseo de fechas "humanas"
-
-# === OPCIONALES (COMENTADOS) ===
-# cryptography==41.0.5        # Muy pesado (230MB), descomentar si es necesario
-# python-json-logger==2.0.7   # Logging avanzado, descomentar después
-
-# === PARA DESARROLLO (COMENTADAS PARA PRODUCCIÓN) ===
-# pytest==7.4.0              # Solo para testing
-# black==23.9.0              # Solo para desarrollo
-# flake8==6.0.0              # Solo para desarrollo
+python-dateutil==2.8.2

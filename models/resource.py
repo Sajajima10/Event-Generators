@@ -18,19 +18,6 @@ class Resource:
         created_at: Optional[datetime] = None,
         current_usage: int = 0  # Cuántas unidades están en uso actualmente
     ):
-        """
-        Inicializa un nuevo recurso.
-        
-        Args:
-            id: ID único del recurso
-            name: Nombre del recurso
-            description: Descripción detallada
-            resource_type: Tipo (room, equipment, person, etc.)
-            quantity: Cantidad total disponible
-            is_active: Si el recurso está activo
-            created_at: Fecha de creación
-            current_usage: Cantidad actualmente en uso
-        """
         self.id = id
         self.name = name
         self.description = description
@@ -40,7 +27,6 @@ class Resource:
         self.created_at = created_at or datetime.now()
         self.current_usage = current_usage
         
-        # Validaciones
         self._validate()
     
     def _validate(self):
@@ -114,95 +100,28 @@ class Resource:
         return f"{self.name} [{self.resource_type}] - {self.available_quantity()}/{self.quantity} disponibles {status}"
     
     def available_quantity(self) -> int:
-        """
-        Calcula la cantidad disponible del recurso.
-        
-        Returns:
-            Cantidad disponible para usar
-        """
+        """Calcula la cantidad disponible del recurso."""
         if not self.is_active:
             return 0
         return max(0, self.quantity - self.current_usage)
     
     def is_available(self, required_quantity: int = 1) -> bool:
-        """
-        Verifica si hay suficiente cantidad del recurso.
-        
-        Args:
-            required_quantity: Cantidad necesaria
-        
-        Returns:
-            True si hay suficiente cantidad disponible
-        """
+        """Verifica si hay suficiente cantidad del recurso."""
         return self.is_active and self.available_quantity() >= required_quantity
     
     def use(self, quantity: int = 1) -> bool:
-        """
-        Intenta usar una cantidad del recurso.
-        
-        Args:
-            quantity: Cantidad a usar
-        
-        Returns:
-            True si se pudo usar la cantidad
-        """
+        """Intenta usar una cantidad del recurso."""
         if self.is_available(quantity):
             self.current_usage += quantity
             return True
         return False
     
     def release(self, quantity: int = 1):
-        """
-        Libera una cantidad del recurso.
-        
-        Args:
-            quantity: Cantidad a liberar
-        """
+        """Libera una cantidad del recurso."""
         self.current_usage = max(0, self.current_usage - quantity)
     
     def utilization_percentage(self) -> float:
-        """
-        Calcula el porcentaje de uso del recurso.
-        
-        Returns:
-            Porcentaje de uso (0-100)
-        """
+        """Calcula el porcentaje de uso del recurso."""
         if self.quantity == 0:
             return 0.0
         return (self.current_usage / self.quantity) * 100
-
-# Prueba del modelo
-if __name__ == "__main__":
-    print("🧪 Probando modelo Resource...")
-    
-    # Crear recurso de prueba
-    test_resource = Resource(
-        name="Sala de Conferencias A",
-        description="Sala principal con capacidad para 50 personas",
-        resource_type="room",
-        quantity=1,
-        current_usage=0
-    )
-    
-    print(f"✅ Recurso creado: {test_resource}")
-    print(f"📊 Disponible: {test_resource.available_quantity()}")
-    print(f"🔍 Disponible para 1: {test_resource.is_available(1)}")
-    print(f"🔍 Disponible para 2: {test_resource.is_available(2)}")
-    
-    # Probar uso y liberación
-    print(f"\n🧪 Probando uso del recurso...")
-    print(f"   Usar 1 unidad: {test_resource.use(1)}")
-    print(f"   Disponible después de usar: {test_resource.available_quantity()}")
-    print(f"   Porcentaje de uso: {test_resource.utilization_percentage():.1f}%")
-    
-    test_resource.release(1)
-    print(f"   Disponible después de liberar: {test_resource.available_quantity()}")
-    
-    # Probar conversión
-    resource_dict = test_resource.to_dict()
-    print(f"\n📋 Convertido a dict: {list(resource_dict.keys())}")
-    
-    resource_from_dict = Resource.from_dict(resource_dict)
-    print(f"🔄 Recreado desde dict: {resource_from_dict}")
-    
-    print("\n🎉 ¡Modelo Resource probado exitosamente!")

@@ -1,7 +1,3 @@
-"""
-ResourceService - Servicio CRUD para manejar recursos en el gestor de eventos.
-Maneja recursos como salas, equipos, personas, etc.
-"""
 import sys
 import os
 from datetime import datetime
@@ -9,9 +5,8 @@ from typing import Optional, List, Dict, Any
 import logging
 
 # ========== CONFIGURAR IMPORTS ==========
-# Configurar path para importaciones
-current_dir = os.path.dirname(os.path.abspath(__file__))  # services/
-project_root = os.path.dirname(current_dir)  # Proyecto/
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(current_dir)
 
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
@@ -32,25 +27,11 @@ if IMPORT_SUCCESS:
         """Servicio para operaciones CRUD con recursos."""
         
         def __init__(self, db_connection: Optional[DatabaseConnection] = None):
-            """
-            Inicializa el servicio de recursos.
-            
-            Args:
-                db_connection: Conexión a la base de datos (opcional)
-            """
             self.db = db_connection or DatabaseConnection()
             logger.info("✅ ResourceService inicializado")
         
         def create_resource(self, resource: Resource) -> Optional[Resource]:
-            """
-            Crea un nuevo recurso en la base de datos.
-            
-            Args:
-                resource: Objeto Resource a crear
-            
-            Returns:
-                Resource creado con ID asignado, o None si hay error
-            """
+            """Crea un nuevo recurso en la base de datos."""
             try:
                 logger.info(f"Creando nuevo recurso: {resource.name}")
                 
@@ -70,7 +51,6 @@ if IMPORT_SUCCESS:
                     resource.created_at or datetime.now()
                 )
                 
-                # Ejecutar inserción
                 resource_id = self.db.execute_query(query, params)
                 
                 if resource_id:
@@ -86,15 +66,7 @@ if IMPORT_SUCCESS:
                 return None
         
         def get_resource(self, resource_id: int) -> Optional[Resource]:
-            """
-            Obtiene un recurso por su ID.
-            
-            Args:
-                resource_id: ID del recurso a buscar
-            
-            Returns:
-                Resource encontrado o None si no existe
-            """
+            """Obtiene un recurso por su ID."""
             try:
                 logger.debug(f"Buscando recurso ID: {resource_id}")
                 
@@ -120,21 +92,10 @@ if IMPORT_SUCCESS:
             resource_type: Optional[str] = None,
             limit: int = 100
         ) -> List[Resource]:
-            """
-            Obtiene todos los recursos con filtros opcionales.
-            
-            Args:
-                active_only: Si True, solo recursos activos
-                resource_type: Filtrar por tipo específico
-                limit: Máximo número de recursos
-            
-            Returns:
-                Lista de objetos Resource
-            """
+            """Obtiene todos los recursos con filtros opcionales."""
             try:
                 logger.debug(f"Obteniendo recursos (activos: {active_only}, tipo: {resource_type})")
                 
-                # Construir query dinámica
                 where_clauses = []
                 params = []
                 
@@ -145,7 +106,6 @@ if IMPORT_SUCCESS:
                     where_clauses.append("resource_type = %s")
                     params.append(resource_type)
                 
-                # Construir query final
                 where_str = "WHERE " + " AND ".join(where_clauses) if where_clauses else ""
                 query = f"SELECT * FROM resources {where_str} ORDER BY name LIMIT %s"
                 params.append(limit)
@@ -161,30 +121,17 @@ if IMPORT_SUCCESS:
                 return []
         
         def update_resource(self, resource_id: int, updates: Dict[str, Any]) -> bool:
-            """
-            Actualiza un recurso existente.
-            
-            Args:
-                resource_id: ID del recurso a actualizar
-                updates: Diccionario con campos a actualizar
-            
-            Returns:
-                True si se actualizó correctamente
-            """
+            """Actualiza un recurso existente."""
             try:
                 logger.info(f"Actualizando recurso ID: {resource_id}")
                 
-                # Verificar que el recurso existe
                 current_resource = self.get_resource(resource_id)
                 if not current_resource:
                     logger.error(f"❌ Recurso ID {resource_id} no encontrado")
                     return False
                 
-                # Construir query dinámica
                 set_clauses = []
                 params = []
-                
-                # Campos permitidos para actualizar
                 allowed_fields = ['name', 'description', 'resource_type', 'quantity', 'is_active']
                 
                 for field, value in updates.items():
@@ -196,12 +143,9 @@ if IMPORT_SUCCESS:
                     logger.warning("⚠️ No hay campos válidos para actualizar")
                     return False
                 
-                # Añadir resource_id al final para WHERE
                 params.append(resource_id)
-                
                 query = f"UPDATE resources SET {', '.join(set_clauses)} WHERE id = %s"
                 
-                # Ejecutar actualización
                 rows_affected = self.db.execute_query(query, tuple(params))
                 
                 if rows_affected > 0:
@@ -216,20 +160,10 @@ if IMPORT_SUCCESS:
                 return False
         
         def delete_resource(self, resource_id: int) -> bool:
-            """
-            Elimina un recurso por su ID.
-            Nota: Solo elimina si no está siendo usado en eventos.
-            
-            Args:
-                resource_id: ID del recurso a eliminar
-            
-            Returns:
-                True si se eliminó correctamente
-            """
+            """Elimina un recurso por su ID. Solo si no está en uso."""
             try:
                 logger.info(f"Eliminando recurso ID: {resource_id}")
                 
-                # Verificar si el recurso está siendo usado
                 check_query = """
                     SELECT COUNT(*) as usage_count 
                     FROM event_resources 
@@ -241,7 +175,6 @@ if IMPORT_SUCCESS:
                     logger.error(f"❌ Recurso ID {resource_id} está siendo usado en eventos")
                     return False
                 
-                # Eliminar el recurso
                 query = "DELETE FROM resources WHERE id = %s"
                 rows_affected = self.db.execute_query(query, (resource_id,))
                 
@@ -257,16 +190,7 @@ if IMPORT_SUCCESS:
                 return False
         
         def search_resources(self, search_term: str, limit: int = 20) -> List[Resource]:
-            """
-            Busca recursos por nombre o descripción.
-            
-            Args:
-                search_term: Término de búsqueda
-                limit: Máximo número de resultados
-            
-            Returns:
-                Lista de recursos que coinciden
-            """
+            """Busca recursos por nombre o descripción."""
             try:
                 logger.debug(f"Buscando recursos con término: '{search_term}'")
                 
@@ -295,16 +219,7 @@ if IMPORT_SUCCESS:
             resource_id: int, 
             required_quantity: int = 1
         ) -> Dict[str, Any]:
-            """
-            Verifica la disponibilidad de un recurso.
-            
-            Args:
-                resource_id: ID del recurso
-                required_quantity: Cantidad necesaria
-            
-            Returns:
-                Diccionario con información de disponibilidad
-            """
+            """Verifica la disponibilidad de un recurso."""
             try:
                 logger.debug(f"Verificando disponibilidad de recurso {resource_id}")
                 
@@ -316,7 +231,6 @@ if IMPORT_SUCCESS:
                         'resource_id': resource_id
                     }
                 
-                # Calcular uso actual desde la base de datos
                 usage_query = """
                     SELECT COALESCE(SUM(quantity_used), 0) as total_used
                     FROM event_resources er
@@ -362,12 +276,7 @@ if IMPORT_SUCCESS:
                 }
         
         def get_resource_types(self) -> List[str]:
-            """
-            Obtiene todos los tipos de recursos únicos en el sistema.
-            
-            Returns:
-                Lista de tipos de recursos
-            """
+            """Obtiene todos los tipos de recursos únicos en el sistema."""
             try:
                 logger.debug("Obteniendo tipos de recursos")
                 
@@ -383,21 +292,11 @@ if IMPORT_SUCCESS:
                 return []
         
         def get_resource_usage_stats(self, resource_id: Optional[int] = None) -> Dict[str, Any]:
-            """
-            Obtiene estadísticas de uso de recursos.
-            
-            Args:
-                resource_id: ID específico del recurso (opcional)
-            
-            Returns:
-                Diccionario con estadísticas
-            """
+            """Obtiene estadísticas de uso de recursos."""
             try:
                 logger.debug(f"Obteniendo estadísticas de uso para recurso: {resource_id}")
-                
                 stats = {}
                 
-                # Estadísticas generales
                 general_query = """
                     SELECT 
                         COUNT(*) as total_resources,
@@ -411,7 +310,6 @@ if IMPORT_SUCCESS:
                 if general_result:
                     stats.update(general_result[0])
                 
-                # Uso actual
                 usage_query = """
                     SELECT 
                         r.id,
@@ -439,75 +337,5 @@ if IMPORT_SUCCESS:
             except Exception as e:
                 logger.error(f"❌ Error al obtener estadísticas: {e}")
                 return {'error': str(e)}
-
-    # ===== PRUEBAS DEL SERVICIO =====
-    if __name__ == "__main__":
-        print("\n" + "="*60)
-        print("🧪 PROBANDO RESOURCE SERVICE")
-        print("="*60)
-        
-        try:
-            from models.resource import Resource
-            
-            # Crear servicio
-            service = ResourceService()
-            print("✅ ResourceService creado")
-            
-            # Crear recurso de prueba
-            test_resource = Resource(
-                name="Proyector HD",
-                description="Proyector de alta definición 1080p",
-                resource_type="equipment",
-                quantity=3,
-                is_active=True
-            )
-            
-            # 1. Crear recurso
-            created_resource = service.create_resource(test_resource)
-            if created_resource:
-                print(f"✅ Recurso creado con ID: {created_resource.id}")
-                
-                # 2. Obtener recurso por ID
-                retrieved_resource = service.get_resource(created_resource.id)
-                if retrieved_resource:
-                    print(f"✅ Recurso recuperado: {retrieved_resource.name}")
-                
-                # 3. Obtener todos los recursos
-                all_resources = service.get_all_resources(active_only=True)
-                print(f"✅ Total recursos activos: {len(all_resources)}")
-                
-                # 4. Buscar recursos
-                search_results = service.search_resources("proyector")
-                print(f"✅ Recursos encontrados en búsqueda: {len(search_results)}")
-                
-                # 5. Verificar disponibilidad
-                availability = service.check_availability(created_resource.id, 2)
-                print(f"✅ Disponibilidad: {availability['message']}")
-                
-                # 6. Obtener tipos de recursos
-                types = service.get_resource_types()
-                print(f"✅ Tipos de recursos: {types}")
-                
-                # 7. Estadísticas
-                stats = service.get_resource_usage_stats()
-                print(f"✅ Estadísticas obtenidas: {stats.get('total_resources', 0)} recursos totales")
-                
-                # 8. Actualizar recurso
-                updates = {'name': 'Proyector HD Actualizado', 'quantity': 4}
-                if service.update_resource(created_resource.id, updates):
-                    print("✏️ Recurso actualizado")
-                
-                # 9. Eliminar recurso (comentado para no borrar)
-                # if service.delete_resource(created_resource.id):
-                #     print("🗑️ Recurso eliminado")
-            
-            print("\n" + "="*60)
-            print("🎉 ¡PRUEBAS DE RESOURCE SERVICE COMPLETADAS!")
-            print("="*60)
-            
-        except Exception as e:
-            print(f"❌ Error en pruebas: {e}")
-            import traceback
-            traceback.print_exc()
 else:
     print("❌ No se pudo inicializar ResourceService debido a errores de importación")

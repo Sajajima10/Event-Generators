@@ -1,7 +1,3 @@
-"""
-ConstraintService - Servicio CRUD para manejar restricciones en el gestor de eventos.
-Maneja restricciones entre recursos (co-requisitos, exclusiones, etc.)
-"""
 import sys
 import os
 from datetime import datetime
@@ -121,12 +117,7 @@ if IMPORT_SUCCESS:
                 return False
         
         def validate_resources(self, resource_ids: List[int]) -> List[Dict[str, Any]]:
-            """
-            Valida si una combinación de recursos viola alguna restricción.
-            
-            Returns:
-                Lista de violaciones encontradas
-            """
+            """Valida si una combinación de recursos viola alguna restricción."""
             violations = []
             
             try:
@@ -207,17 +198,5 @@ if IMPORT_SUCCESS:
                             })
             
             return violations
-
-    # ===== PRUEBAS =====
-    if __name__ == "__main__":
-        print("\n🧪 Probando ConstraintService...")
-        
-        try:
-            service = ConstraintService()
-            print("✅ ConstraintService creado")
-            
-            # Aquí irían pruebas específicas
-            print("🎯 Servicio listo para usar")
-            
-        except Exception as e:
-            print(f"❌ Error: {e}")
+else:
+    print("❌ No se pudo inicializar ConstraintService debido a errores de importación")

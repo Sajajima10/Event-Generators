@@ -1,6 +1,5 @@
 """
 ConflictChecker - Validador para detectar conflictos de horarios entre eventos.
-Verifica si recursos están disponibles en ciertos horarios.
 """
 import sys
 import os
@@ -30,12 +29,6 @@ if IMPORT_SUCCESS:
         """Validador para detectar conflictos de horarios."""
         
         def __init__(self, db_connection: Optional[DatabaseConnection] = None):
-            """
-            Inicializa el ConflictChecker.
-            
-            Args:
-                db_connection: Conexión a la base de datos (opcional)
-            """
             self.db = db_connection or DatabaseConnection()
             logger.info("✅ ConflictChecker inicializado")
         
@@ -46,18 +39,7 @@ if IMPORT_SUCCESS:
             end_time: datetime,
             exclude_event_id: Optional[int] = None
         ) -> Tuple[bool, List[Dict[str, Any]]]:
-            """
-            Verifica si un recurso tiene conflicto en un horario específico.
-            
-            Args:
-                resource_id: ID del recurso
-                start_time: Hora de inicio a verificar
-                end_time: Hora de fin a verificar
-                exclude_event_id: ID de evento a excluir (para updates)
-            
-            Returns:
-                Tuple: (has_conflict, conflict_details)
-            """
+            """Verifica si un recurso tiene conflicto en un horario específico."""
             try:
                 logger.debug(f"Verificando conflicto para recurso {resource_id}")
                 
@@ -72,27 +54,23 @@ if IMPORT_SUCCESS:
                     JOIN events e ON er.event_id = e.id
                     WHERE er.resource_id = %s
                     AND e.status = 'scheduled'
-                    AND e.end_time > NOW()  -- Solo eventos futuros
+                    AND e.end_time > NOW()
                     AND (
-                        -- El nuevo evento empieza durante un evento existente
                         (%s BETWEEN e.start_time AND e.end_time)
                         OR
-                        -- El nuevo evento termina durante un evento existente
                         (%s BETWEEN e.start_time AND e.end_time)
                         OR
-                        -- El nuevo evento contiene completamente un evento existente
                         (e.start_time BETWEEN %s AND %s)
                         OR
-                        -- Los eventos se solapan parcialmente
                         (e.start_time < %s AND e.end_time > %s)
                     )
                 """
                 
                 params = [
                     resource_id,
-                    start_time, end_time,  # Para BETWEEN checks
-                    start_time, end_time,  # Para evento contiene existente
-                    end_time, start_time   # Para solapamiento parcial
+                    start_time, end_time,
+                    start_time, end_time,
+                    end_time, start_time
                 ]
                 
                 if exclude_event_id:
@@ -136,18 +114,7 @@ if IMPORT_SUCCESS:
             end_time: datetime,
             exclude_event_id: Optional[int] = None
         ) -> Dict[str, Any]:
-            """
-            Verifica conflictos para múltiples recursos simultáneamente.
-            
-            Args:
-                resource_ids: Lista de IDs de recursos
-                start_time: Hora de inicio
-                end_time: Hora de fin
-                exclude_event_id: ID de evento a excluir
-            
-            Returns:
-                Dict con resultados de conflicto
-            """
+            """Verifica conflictos para múltiples recursos simultáneamente."""
             try:
                 logger.debug(f"Verificando {len(resource_ids)} recursos")
                 
@@ -196,24 +163,10 @@ if IMPORT_SUCCESS:
             max_days_ahead: int = 30,
             exclude_event_id: Optional[int] = None
         ) -> Optional[Dict[str, Any]]:
-            """
-            Encuentra el próximo horario disponible para un conjunto de recursos.
-            
-            Args:
-                resource_ids: Lista de IDs de recursos
-                desired_start: Hora de inicio deseada
-                desired_end: Hora de fin deseada
-                duration_hours: Duración en horas
-                max_days_ahead: Máximo número de días a buscar
-                exclude_event_id: ID de evento a excluir
-            
-            Returns:
-                Dict con horario disponible o None
-            """
+            """Encuentra el próximo horario disponible para un conjunto de recursos."""
             try:
                 logger.info(f"Buscando horario para {len(resource_ids)} recursos")
                 
-                # Si el horario deseado está disponible, usarlo
                 desired_result = self.check_multiple_resources_conflict(
                     resource_ids, desired_start, desired_end, exclude_event_id
                 )
@@ -227,9 +180,7 @@ if IMPORT_SUCCESS:
                         'reason': 'Horario deseado disponible'
                     }
                 
-                # Buscar en el mismo día, desplazando por horas
                 current_date = desired_start.date()
-                search_start = datetime.combine(current_date, desired_start.time())
                 
                 for day_offset in range(max_days_ahead):
                     search_date = current_date + timedelta(days=day_offset)
@@ -242,7 +193,6 @@ if IMPORT_SUCCESS:
                         )
                         candidate_end = candidate_start + timedelta(hours=duration_hours)
                         
-                        # Verificar disponibilidad
                         candidate_result = self.check_multiple_resources_conflict(
                             resource_ids, candidate_start, candidate_end, exclude_event_id
                         )
@@ -278,17 +228,7 @@ if IMPORT_SUCCESS:
             start_date: datetime,
             end_date: datetime
         ) -> Dict[str, Any]:
-            """
-            Obtiene el calendario/horario de un recurso.
-            
-            Args:
-                resource_id: ID del recurso
-                start_date: Fecha de inicio
-                end_date: Fecha de fin
-            
-            Returns:
-                Dict con eventos programados y horarios ocupados
-            """
+            """Obtiene el calendario/horario de un recurso."""
             try:
                 logger.debug(f"Obteniendo calendario para recurso {resource_id}")
                 
@@ -328,14 +268,12 @@ if IMPORT_SUCCESS:
                     }
                     events.append(event)
                     
-                    # Agregar slot ocupado
                     busy_slots.append({
                         'start': row['start_time'],
                         'end': row['end_time'],
                         'event_id': row['id']
                     })
                 
-                # Calcular disponibilidad por día
                 availability_by_day = self._calculate_daily_availability(
                     busy_slots, start_date, end_date
                 )
@@ -371,20 +309,15 @@ if IMPORT_SUCCESS:
             existing_start: datetime,
             existing_end: datetime
         ) -> str:
-            """
-            Determina el tipo de conflicto entre dos intervalos.
-            
-            Returns:
-                Tipo de conflicto: 'overlap', 'contained', 'contains', 'adjacent'
-            """
+            """Determina el tipo de conflicto entre dos intervalos."""
             if new_start < existing_start and new_end > existing_end:
-                return 'contains'  # Nuevo evento contiene al existente
+                return 'contains'
             elif new_start > existing_start and new_end < existing_end:
-                return 'contained'  # Nuevo evento está contenido en existente
+                return 'contained'
             elif new_start <= existing_end and new_end >= existing_start:
-                return 'overlap'    # Solapamiento parcial
+                return 'overlap'
             elif new_end == existing_start or new_start == existing_end:
-                return 'adjacent'   # Eventos adyacentes
+                return 'adjacent'
             else:
                 return 'unknown'
         
@@ -422,7 +355,6 @@ if IMPORT_SUCCESS:
             return availability
         
         def _calculate_busy_hours(self, busy_slots: List[Dict]) -> float:
-            """Calcula total de horas ocupadas."""
             total_hours = 0
             for slot in busy_slots:
                 duration = slot['end'] - slot['start']
@@ -435,74 +367,8 @@ if IMPORT_SUCCESS:
             start_date: datetime,
             end_date: datetime
         ) -> float:
-            """Calcula total de horas libres en el período."""
             total_duration = (end_date - start_date).total_seconds() / 3600
             busy_hours = self._calculate_busy_hours(busy_slots)
             return max(0, total_duration - busy_hours)
-
-    # ===== PRUEBAS DEL CONFLICT CHECKER =====
-    if __name__ == "__main__":
-        print("\n" + "="*60)
-        print("🧪 PROBANDO CONFLICT CHECKER")
-        print("="*60)
-        
-        try:
-            from datetime import datetime, timedelta
-            
-            # Crear checker
-            checker = ConflictChecker()
-            print("✅ ConflictChecker creado")
-            
-            # Fechas de prueba
-            now = datetime.now()
-            future_start = now + timedelta(hours=1)
-            future_end = now + timedelta(hours=2)
-            
-            # 1. Verificar conflicto para un recurso (simulado)
-            print(f"\n1️⃣ Verificando conflicto para recurso 1...")
-            has_conflict, conflicts = checker.check_resource_conflict(1, future_start, future_end)
-            print(f"   Conflicto: {'Sí' if has_conflict else 'No'}")
-            if has_conflict:
-                print(f"   Conflictos encontrados: {len(conflicts)}")
-            
-            # 2. Verificar múltiples recursos
-            print(f"\n2️⃣ Verificando 3 recursos...")
-            resources = [1, 2, 3]
-            multi_result = checker.check_multiple_resources_conflict(
-                resources, future_start, future_end
-            )
-            print(f"   Total recursos: {multi_result['total_resources_checked']}")
-            print(f"   Con conflicto: {multi_result['conflicting_count']}")
-            
-            # 3. Buscar horario disponible
-            print(f"\n3️⃣ Buscando horario disponible...")
-            slot_result = checker.find_available_time_slot(
-                resource_ids=resources,
-                desired_start=future_start,
-                desired_end=future_end,
-                duration_hours=1,
-                max_days_ahead=7
-            )
-            print(f"   Disponible: {slot_result['available']}")
-            if slot_result['available']:
-                print(f"   Horario: {slot_result['start_time']} - {slot_result['end_time']}")
-            
-            # 4. Obtener calendario de recurso
-            print(f"\n4️⃣ Obteniendo calendario...")
-            start_date = now.replace(hour=0, minute=0, second=0)
-            end_date = start_date + timedelta(days=7)
-            schedule = checker.get_resource_schedule(1, start_date, end_date)
-            print(f"   Período: {start_date.date()} a {end_date.date()}")
-            print(f"   Eventos: {schedule.get('total_events', 0)}")
-            print(f"   Horas ocupadas: {schedule.get('busy_hours', 0):.1f}h")
-            
-            print("\n" + "="*60)
-            print("🎉 ¡CONFLICT CHECKER PROBADO EXITOSAMENTE!")
-            print("="*60)
-            
-        except Exception as e:
-            print(f"❌ Error en pruebas: {e}")
-            import traceback
-            traceback.print_exc()
 else:
     print("❌ No se pudo inicializar ConflictChecker")

@@ -9,7 +9,6 @@ from typing import Optional, List, Dict, Any
 load_dotenv()
 
 # Configuremos loggin
-
 logging.basicConfig(
     level=getattr(logging, os.getenv('LOG_LEVEL', 'INFO')),
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
@@ -17,7 +16,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-class DataBaseConnection():
+class DatabaseConnection():
 
     # Clase singleton para manejar la conexión a la base de datos.
     # Garantiza una única conexión por aplicación.
@@ -27,14 +26,13 @@ class DataBaseConnection():
 
     def __new__(cls):
         if cls._instance is None:
-            cls._instance = super(DataBaseConnection, cls).__new__(cls)
+            cls._instance = super(DatabaseConnection, cls).__new__(cls)
             cls._instance._initialize()
         return cls._instance
 
     def _initialize(self):
 
         self.config = {
-
             'host': os.getenv('DB_HOST', 'localhost'),
             'port': int(os.getenv('DB_PORT', 3306)),
             'database': os.getenv('DB_NAME', 'event_manager'),
@@ -42,21 +40,12 @@ class DataBaseConnection():
             'password': os.getenv('DB_PASSWORD', ''),
             'autocommit': True,
             'connect_timeout': int(os.getenv('DB_CONNECTION_TIMEOUT', 30))
-        
         }
         logger.debug("Configuración de DB inicializada")
 
 
     def connect(self) -> mariadb.Connection:
-
         # Establece conexión con MariaDB.
-        
-        # Returns:
-            # mariadb.Connection: Objeto de conexión
-        
-        # Raises:
-            # mariadb.Error: Si no se puede conectar
-
         try:
             if self._connection is None or not self._connection.open:
                 logger.info(f"Conectando a MariaDB en {self.config['host']}:{self.config['port']}")
@@ -85,21 +74,7 @@ class DataBaseConnection():
         
         """
         Ejecuta una consulta SQL.
-        
-        Args:
-            query (str): Consulta SQL
-            params (tuple, optional): Parámetros para la consulta
-            fetch (bool): Si es True, retorna resultados (para SELECT)
-        
-        Returns:
-            Para SELECT con fetch=True: List[Dict] con resultados
-            Para INSERT: ID del último registro insertado
-            Para UPDATE/DELETE: Número de filas afectadas
-        
-        Raises:
-            mariadb.Error: Si hay error en la consulta
         """
-
         connection = self.connect()
         cursor = None
     
@@ -131,9 +106,7 @@ class DataBaseConnection():
                 cursor.close()
     
     def execute_many(self, query: str, params_list: List[tuple]) -> int:
-
         # Ejecuta la misma consulta con múltiples conjuntos de parámetros.
-
         connection = self.connect()
         cursor = None
         
@@ -153,9 +126,7 @@ class DataBaseConnection():
                 cursor.close()
     
     def test_connection(self) -> bool:
-
         # Prueba la conecion a la Base de Datos
-
         try:
             conn = self.connect()
             cursor = conn.cursor()
@@ -165,14 +136,11 @@ class DataBaseConnection():
             return result[0] == 1
         
         except mariadb.Error as e:
-
             logger.error(f"Prueba de conexión fallida: {e}")
             return False
 
     def get_database_info(self) -> Dict[str, Any]:
-
         # Obtiene la Información de la Base de datos
-
         try:
             conn = self.connect()
             cursor = conn.cursor(dictionary=True)
@@ -201,33 +169,3 @@ class DataBaseConnection():
         except mariadb.Error as e:
             logger.error(f"Error obteniendo info de DB: {e}")
             return {}
-        
-
-if __name__ == "__main__":
-    # ⚠️ SOLO para pruebas locales
-    db = DataBaseConnection()  # Instancia temporal
-    
-    print("🧪 === PRUEBA DE CONEXIÓN ===")
-    
-    if db.test_connection():
-        print("✅ Conexión exitosa a MariaDB")
-        
-        info = db.get_database_info()
-        print(f"\n📊 Información de la base de datos:")
-        print(f"   Versión: {info.get('version', 'N/A')}")
-        print(f"   Base de datos: {info.get('database', 'N/A')}")
-        print(f"   Tablas: {info.get('table_count', 0)} encontradas")
-        
-        if info.get('tables'):
-            print("   Lista de tablas:")
-            for table in info['tables']:
-                print(f"     - {table}")
-    else:
-        print("❌ No se pudo conectar a MariaDB")
-        print("\n🔧 Soluciones:")
-        print("1. Verifica que MariaDB esté corriendo: sudo systemctl status mysqld")
-        print("2. Revisa credenciales en .env")
-        print("3. Ejecuta: python database/initialize.py")
-    
-    # Importante: cerrar conexión después de pruebas
-    db.disconnect()

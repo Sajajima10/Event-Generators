@@ -1,4 +1,3 @@
-
 from datetime import datetime
 from typing import Optional, Dict, Any, List, Tuple
 
@@ -21,18 +20,6 @@ class Constraint:
         created_at: Optional[datetime] = None,
         rules: List[Dict[str, Any]] = None  # Lista de reglas de esta restricción
     ):
-        """
-        Inicializa una nueva restricción.
-        
-        Args:
-            id: ID único de la restricción
-            name: Nombre de la restricción
-            constraint_type: Tipo (co_requirement, mutual_exclusion, capacity)
-            description: Descripción detallada
-            is_active: Si la restricción está activa
-            created_at: Fecha de creación
-            rules: Lista de reglas asociadas
-        """
         self.id = id
         self.name = name
         self.constraint_type = constraint_type
@@ -41,7 +28,6 @@ class Constraint:
         self.created_at = created_at or datetime.now()
         self.rules = rules or []
         
-        # Validaciones
         self._validate()
     
     def _validate(self):
@@ -108,18 +94,7 @@ class Constraint:
         related_resource_id: Optional[int] = None,
         value: Optional[int] = None
     ) -> Dict[str, Any]:
-        """
-        Añade una regla a la restricción.
-        
-        Args:
-            resource_id: ID del recurso principal
-            rule_type: Tipo de regla (requires, excludes, etc.)
-            related_resource_id: ID del recurso relacionado (si aplica)
-            value: Valor (para capacity, min_quantity)
-        
-        Returns:
-            La regla creada
-        """
+        """Añade una regla a la restricción."""
         if rule_type not in self.RULE_TYPES:
             raise ValueError(f"Tipo de regla inválido. Debe ser: {', '.join(self.RULE_TYPES)}")
         
@@ -134,27 +109,9 @@ class Constraint:
         return rule
     
     def get_rules_for_resource(self, resource_id: int) -> List[Dict[str, Any]]:
-        """
-        Obtiene todas las reglas que afectan a un recurso.
-        
-        Args:
-            resource_id: ID del recurso
-        
-        Returns:
-            Lista de reglas
-        """
         return [rule for rule in self.rules if rule['resource_id'] == resource_id]
     
     def get_required_resources(self, resource_id: int) -> List[int]:
-        """
-        Obtiene los IDs de recursos requeridos por un recurso.
-        
-        Args:
-            resource_id: ID del recurso
-        
-        Returns:
-            Lista de IDs de recursos requeridos
-        """
         required = []
         for rule in self.get_rules_for_resource(resource_id):
             if rule['rule_type'] == 'requires' and rule['related_resource_id']:
@@ -162,15 +119,6 @@ class Constraint:
         return required
     
     def get_excluded_resources(self, resource_id: int) -> List[int]:
-        """
-        Obtiene los IDs de recursos excluidos por un recurso.
-        
-        Args:
-            resource_id: ID del recurso
-        
-        Returns:
-            Lista de IDs de recursos excluidos
-        """
         excluded = []
         for rule in self.get_rules_for_resource(resource_id):
             if rule['rule_type'] == 'excludes' and rule['related_resource_id']:
@@ -178,30 +126,13 @@ class Constraint:
         return excluded
     
     def get_capacity_limit(self, resource_id: int) -> Optional[int]:
-        """
-        Obtiene el límite de capacidad de un recurso.
-        
-        Args:
-            resource_id: ID del recurso
-        
-        Returns:
-            Límite de capacidad o None
-        """
         for rule in self.get_rules_for_resource(resource_id):
             if rule['rule_type'] == 'max_capacity':
                 return rule['value']
         return None
     
     def check_violation(self, resource_ids: List[int]) -> Tuple[bool, str]:
-        """
-        Verifica si una combinación de recursos viola esta restricción.
-        
-        Args:
-            resource_ids: Lista de IDs de recursos a verificar
-        
-        Returns:
-            Tuple (violated, message)
-        """
+        """Verifica si una combinación de recursos viola esta restricción."""
         if not self.is_active:
             return False, "Restricción inactiva"
         
@@ -216,61 +147,4 @@ class Constraint:
                 if excluded_id in resource_ids:
                     return True, f"El recurso {resource_id} excluye el recurso {excluded_id}"
             
-            # Verificar capacidad (esto requeriría más contexto)
-            capacity_limit = self.get_capacity_limit(resource_id)
-            if capacity_limit is not None:
-                # Nota: Para verificar capacidad necesitamos saber cuántas personas/objetos
-                pass
-        
         return False, "OK"
-
-# Prueba del modelo
-if __name__ == "__main__":
-    print("🧪 Probando modelo Constraint...")
-    
-    # Crear restricción de prueba
-    test_constraint = Constraint(
-        name="Audio requiere Técnico",
-        constraint_type="co_requirement",
-        description="Equipos de audio requieren técnico especializado",
-        is_active=True
-    )
-    
-    # Añadir reglas
-    test_constraint.add_rule(
-        resource_id=3,  # Micrófono
-        rule_type="requires",
-        related_resource_id=4  # Técnico
-    )
-    
-    test_constraint.add_rule(
-        resource_id=5,  # Otro equipo de audio
-        rule_type="requires", 
-        related_resource_id=4  # Técnico
-    )
-    
-    print(f"✅ Restricción creada: {test_constraint}")
-    print(f"📋 Reglas: {test_constraint.rules}")
-    
-    # Probar verificaciones
-    print(f"\n🧪 Probando verificaciones...")
-    print(f"   Recursos requeridos por 3: {test_constraint.get_required_resources(3)}")
-    print(f"   Recursos excluidos por 3: {test_constraint.get_excluded_resources(3)}")
-    
-    # Verificar violaciones
-    test_resources = [3]  # Solo micrófono, sin técnico
-    violated, message = test_constraint.check_violation(test_resources)
-    print(f"   Violación con [3]: {violated} - {message}")
-    
-    test_resources = [3, 4]  # Micrófono con técnico
-    violated, message = test_constraint.check_violation(test_resources)
-    print(f"   Violación con [3, 4]: {violated} - {message}")
-    
-    # Probar conversión
-    constraint_dict = test_constraint.to_dict()
-    print(f"\n📋 Convertido a dict: {list(constraint_dict.keys())}")
-    
-    constraint_from_dict = Constraint.from_dict(constraint_dict)
-    print(f"🔄 Recreado desde dict: {constraint_from_dict}")
-    
-    print("\n🎉 ¡Modelo Constraint probado exitosamente!")
