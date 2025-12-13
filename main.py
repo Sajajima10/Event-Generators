@@ -4,17 +4,15 @@ from datetime import datetime, timedelta
 from tabulate import tabulate
 from colorama import init, Fore, Style
 
-# Importar servicios
 from database.initialize import main as init_db
 from services.event_service import EventService
 from services.resource_service import ResourceService
 from validators.conflict_checker import ConflictChecker
-from services.constraint_service import ConstraintService  # <--- NUEVO IMPORT
+from services.constraint_service import ConstraintService
 from models.event import Event
 from models.resource import Resource
-from models.constraint import Constraint # <--- NUEVO IMPORT
+from models.constraint import Constraint
 
-# Inicializar colores
 init(autoreset=True)
 
 class EventManagerApp:
@@ -22,7 +20,7 @@ class EventManagerApp:
         self.event_service = EventService()
         self.resource_service = ResourceService()
         self.conflict_checker = ConflictChecker()
-        self.constraint_service = ConstraintService() # <--- INICIALIZAR SERVICIO
+        self.constraint_service = ConstraintService()
 
     def clear_screen(self):
         os.system('cls' if os.name == 'nt' else 'clear')
@@ -32,11 +30,8 @@ class EventManagerApp:
         print(Fore.CYAN + "📅  SISTEMA DE GESTIÓN DE EVENTOS")
         print(Fore.CYAN + "=" * 50 + Style.RESET_ALL)
 
-    # ==========================
-    # GESTIÓN DE RECURSOS
-    # ==========================
     def view_resources(self):
-        print(Fore.YELLOW + "\n📋 LISTA DE RECURSOS DISPONIBLES")
+        print(Fore.YELLOW + "\n📋 LISTA DE RECURSOS")
         resources = self.resource_service.get_all_resources()
         
         if not resources:
@@ -54,98 +49,66 @@ class EventManagerApp:
     def create_resource(self):
         print(Fore.YELLOW + "\n➕ NUEVO RECURSO")
         try:
-            name = input("Nombre del recurso: ")
+            name = input("Nombre: ")
             type_r = input("Tipo (room, equipment, person): ")
             qty = int(input("Cantidad total: "))
             desc = input("Descripción: ")
 
             res = Resource(name=name, resource_type=type_r, quantity=qty, description=desc)
             if self.resource_service.create_resource(res):
-                print(Fore.GREEN + f"\n✅ Recurso '{name}' creado exitosamente!")
+                print(Fore.GREEN + f"\n✅ Recurso '{name}' creado.")
             else:
                 print(Fore.RED + "\n❌ Error al crear recurso.")
         except ValueError:
-            print(Fore.RED + "❌ Error: La cantidad debe ser un número.")
+            print(Fore.RED + "❌ Cantidad debe ser un número.")
 
-    # ==========================
-    # GESTIÓN DE RESTRICCIONES (NUEVO)
-    # ==========================
     def manage_constraints(self):
-        """Menú para crear reglas entre recursos."""
-        print(Fore.MAGENTA + "\n⛓️  GESTIÓN DE RESTRICCIONES Y REGLAS")
-        print("Define reglas como: 'El Recurso A requiere al Recurso B'")
-        
+        print(Fore.MAGENTA + "\n⛓️  GESTIÓN DE RESTRICCIONES")
         self.view_resources()
         print("-" * 30)
         
         try:
-            # 1. Crear la definición de la restricción
             print("\n1. Definir Nueva Regla:")
-            name = input("Nombre de la regla (ej: Pack Audio): ")
+            name = input("Nombre de la regla: ")
             desc = input("Descripción: ")
             
-            # Crear objeto restricción
-            new_constraint = Constraint(
-                name=name,
-                constraint_type="co_requirement", # Por defecto co-requisito
-                description=desc
-            )
+            new_constraint = Constraint(name=name, constraint_type="co_requirement", description=desc)
+            saved = self.constraint_service.create_constraint(new_constraint)
             
-            # Guardar encabezado
-            saved_constraint = self.constraint_service.create_constraint(new_constraint)
-            
-            if not saved_constraint:
-                print(Fore.RED + "❌ Error al iniciar la restricción.")
+            if not saved:
+                print(Fore.RED + "❌ Error al iniciar restricción.")
                 return
 
-            # 2. Agregar reglas específicas
-            print(Fore.CYAN + "\nAhora definamos la lógica:")
-            print("Ejemplo: Si selecciono 'Proyector' (ID Principal) ENTONCES 'REQUIRES' (Tipo) -> 'Pantalla' (ID Relacionado)")
+            print(Fore.CYAN + "\nDefinir lógica:")
+            res_id = int(input("ID Recurso Principal: "))
+            rule_type = input("Tipo (requires/excludes): ").lower()
+            related_id = int(input("ID Recurso Relacionado: "))
             
-            res_id = int(input("\nID del Recurso Principal: "))
-            
-            print("\nTipos de regla disponibles:")
-            print(" - requires (Si uso A, necesito B)")
-            print(" - excludes (Si uso A, NO puedo usar B)")
-            rule_type = input("Tipo de regla (requires/excludes): ").lower()
-            
-            related_id = int(input("ID del Recurso Relacionado: "))
-            
-            # Crear el diccionario de la regla
             rule = {
                 'resource_id': res_id,
                 'rule_type': rule_type,
-                'related_resource_id': related_id,
-                'value': None
+                'related_resource_id': related_id
             }
             
-            # Guardar regla en BD
-            if self.constraint_service.add_rule_to_constraint(saved_constraint.id, rule):
-                print(Fore.GREEN + f"\n✅ Regla guardada: El recurso {res_id} ahora {rule_type} al recurso {related_id}")
+            if self.constraint_service.add_rule_to_constraint(saved.id, rule):
+                print(Fore.GREEN + f"\n✅ Regla guardada.")
             else:
-                print(Fore.RED + "❌ Error al guardar la regla.")
-
-        except ValueError:
-            print(Fore.RED + "❌ Error: Debes ingresar números para los IDs.")
+                print(Fore.RED + "❌ Error al guardar regla.")
         except Exception as e:
             print(Fore.RED + f"❌ Error: {e}")
 
-    # ==========================
-    # GESTIÓN DE EVENTOS
-    # ==========================
     def view_events(self):
-        print(Fore.YELLOW + "\n📅 CALENDARIO DE EVENTOS")
+        print(Fore.YELLOW + "\n📅 CALENDARIO")
         events = self.event_service.get_all_events()
         
         if not events:
-            print("No hay eventos programados.")
+            print("No hay eventos.")
             return
 
         data = []
         for e in events:
             start = e.start_time.strftime("%d/%m %H:%M")
             end = e.end_time.strftime("%H:%M")
-            # Obtener nombres de recursos
             res_names = []
             for rid in e.resource_ids:
                 r = self.resource_service.get_resource(rid)
@@ -158,113 +121,310 @@ class EventManagerApp:
     def create_event(self):
         print(Fore.YELLOW + "\n➕ NUEVO EVENTO")
         try:
-            title = input("Título del evento: ")
+            title = input("Título: ")
             desc = input("Descripción: ")
             
-            print(Fore.CYAN + "Formato de fecha: YYYY-MM-DD HH:MM (Ej: 2024-12-25 14:00)")
+            print(Fore.CYAN + "Formato: YYYY-MM-DD HH:MM")
             start_str = input("Inicio: ")
-            duration = int(input("Duración en minutos: "))
+            duration = int(input("Duración (minutos): "))
             
             start_time = datetime.strptime(start_str, "%Y-%m-%d %H:%M")
             end_time = start_time + timedelta(minutes=duration)
 
-            # Selección de recursos
             self.view_resources()
-            res_input = input("\nIDs de recursos a usar (separados por coma, o enter para ninguno): ")
+            res_input = input("\nIDs de recursos (coma): ")
             resource_ids = [int(x.strip()) for x in res_input.split(',')] if res_input.strip() else []
 
-            # ==========================================
-            # 1. VERIFICAR CONFLICTOS DE HORARIO/CANTIDAD
-            # ==========================================
             if resource_ids:
-                print(Fore.YELLOW + "🔍 Verificando disponibilidad de horarios...")
+                print(Fore.YELLOW + "🔍 Verificando disponibilidad...")
                 conflict = self.conflict_checker.check_multiple_resources_conflict(
                     resource_ids, start_time, end_time
                 )
                 
                 if conflict['has_conflict']:
-                    print(Fore.RED + "\n⛔ ERROR DE DISPONIBILIDAD:")
-                    print("Uno o más recursos ya están ocupados en ese horario.")
-                    print("Detalles del conflicto:", conflict.get('conflicts'))
-                    return # Detener creación
+                    print(Fore.RED + "\n⛔ ERROR: Recursos ocupados.")
+                    print(f"Detalles: {conflict.get('conflicts')}")
+                    return
 
-            # ==========================================
-            # 2. VERIFICAR RESTRICCIONES (NUEVO)
-            # ==========================================
-            if resource_ids:
-                print(Fore.YELLOW + "🔍 Verificando reglas de negocio (dependencias)...")
                 violations = self.constraint_service.validate_resources(resource_ids)
-                
                 if violations:
-                    print(Fore.RED + "\n⛔ ERROR DE REGLAS DE NEGOCIO:")
+                    print(Fore.RED + "\n⛔ ERROR: Reglas de negocio.")
                     for v in violations:
-                        # v['message'] contiene mensajes como "El recurso X requiere el recurso Y"
                         print(f" - {v['message']}")
-                    
-                    print(Fore.RED + "\nNo se puede crear el evento porque faltan recursos obligatorios o hay incompatibilidades.")
-                    return # Detener creación
+                    return
 
-            # Creación del evento si todo pasa
             new_event = Event(
-                title=title,
-                description=desc,
-                start_time=start_time,
-                end_time=end_time,
-                resource_ids=resource_ids,
-                created_by="admin"
+                title=title, description=desc,
+                start_time=start_time, end_time=end_time,
+                resource_ids=resource_ids, created_by="admin"
             )
             
             created = self.event_service.create_event(new_event)
             if created:
-                print(Fore.GREEN + f"\n✅ Evento '{title}' creado exitosamente (ID: {created.id})")
+                print(Fore.GREEN + f"\n✅ Evento creado (ID: {created.id})")
             else:
-                print(Fore.RED + "\n❌ Error al guardar el evento en base de datos.")
+                print(Fore.RED + "\n❌ Error al guardar.")
 
         except ValueError as e:
             print(Fore.RED + f"❌ Error de formato: {e}")
         except Exception as e:
-            print(Fore.RED + f"❌ Error inesperado: {e}")
+            print(Fore.RED + f"❌ Error: {e}")
+
+    def edit_event_ui(self):
+        print(Fore.YELLOW + "\n✏️  EDITAR EVENTO")
+        self.view_events()
+        try:
+            id_input = input("\nID evento a editar (ENTER volver): ")
+            if not id_input.strip(): return
+            
+            event = self.event_service.get_event(int(id_input))
+            if not event:
+                print(Fore.RED + "❌ No encontrado.")
+                return
+            if event.status == 'cancelled':
+                print(Fore.RED + "⛔ Evento cancelado.")
+                return
+
+            print(Fore.CYAN + "ENTER para mantener valor actual")
+            
+            new_title = input(f"Título [{event.title}]: ").strip()
+            new_desc = input(f"Descripción [{event.description}]: ").strip()
+            
+            current_start = event.start_time.strftime("%Y-%m-%d %H:%M")
+            new_start_str = input(f"Inicio [{current_start}]: ").strip()
+            
+            curr_duration = int((event.end_time - event.start_time).total_seconds() / 60)
+            new_duration_str = input(f"Duración min [{curr_duration}]: ").strip()
+            
+            # Recalcular fechas
+            new_start_time = event.start_time
+            new_end_time = event.end_time
+            times_changed = False
+            
+            if new_start_str:
+                try:
+                    new_start_time = datetime.strptime(new_start_str, "%Y-%m-%d %H:%M")
+                    times_changed = True
+                except ValueError:
+                    print(Fore.RED + "❌ Fecha inválida (Mantenida anterior).")
+            
+            if new_duration_str or times_changed:
+                try:
+                    dur = int(new_duration_str) if new_duration_str else curr_duration
+                    new_end_time = new_start_time + timedelta(minutes=dur)
+                    times_changed = True
+                except ValueError:
+                    print(Fore.RED + "❌ Duración inválida.")
+
+            # Recursos
+            print(f"Recursos actuales: {event.resource_ids}")
+            self.view_resources()
+            new_res_input = input("Nuevos IDs (coma, '0' limpiar, ENTER mantener): ").strip()
+            
+            new_resource_ids = event.resource_ids
+            resources_changed = False
+            
+            if new_res_input:
+                try:
+                    if new_res_input in ['0', 'none']:
+                        new_resource_ids = []
+                    else:
+                        new_resource_ids = [int(x.strip()) for x in new_res_input.split(',')]
+                    resources_changed = True
+                except ValueError:
+                    print(Fore.RED + "❌ IDs inválidos.")
+
+            if times_changed or resources_changed:
+                print(Fore.YELLOW + "🔍 Validando cambios...")
+                conflict = self.conflict_checker.check_multiple_resources_conflict(
+                    new_resource_ids, new_start_time, new_end_time,
+                    exclude_event_id=event.id
+                )
+                
+                if conflict['has_conflict']:
+                    print(Fore.RED + "\n⛔ CAMBIO RECHAZADO: Conflicto.")
+                    print(f"Detalles: {conflict.get('conflicts')}")
+                    return
+                
+                violations = self.constraint_service.validate_resources(new_resource_ids)
+                if violations:
+                    print(Fore.RED + "\n⛔ RECHAZADO: Reglas de negocio.")
+                    return
+
+            updates = {}
+            if new_title: updates['title'] = new_title
+            if new_desc: updates['description'] = new_desc
+            if times_changed:
+                updates['start_time'] = new_start_time
+                updates['end_time'] = new_end_time
+            if resources_changed:
+                updates['resource_ids'] = new_resource_ids
+            
+            if not updates:
+                print("⚠️ Sin cambios.")
+                return
+
+            if self.event_service.update_event(event.id, updates):
+                print(Fore.GREEN + "✅ Actualizado.")
+            else:
+                print(Fore.RED + "❌ Error al actualizar.")
+        except Exception as e:
+            print(Fore.RED + f"❌ Error: {e}")
+
+    def cancel_event_ui(self):
+        print(Fore.YELLOW + "\n🚫 CANCELAR EVENTO")
+        self.view_events()
+        try:
+            id_input = input("\nID evento (ENTER volver): ")
+            if not id_input.strip(): return
+            
+            event_id = int(id_input)
+            if self.event_service.cancel_event(event_id):
+                print(Fore.GREEN + "✅ Cancelado.")
+            else:
+                print(Fore.RED + "❌ Error (ID inválido o ya cancelado).")
+        except ValueError:
+            print(Fore.RED + "❌ ID inválido.")
+    
+    def clone_event_ui(self):
+        print(Fore.YELLOW + "\n🐑 CLONAR EVENTO")
+        self.view_events()
+        
+        try:
+            id_input = input("\nID del evento a clonar (ENTER volver): ")
+            if not id_input.strip(): return
+            
+            original_event = self.event_service.get_event(int(id_input))
+            if not original_event:
+                print(Fore.RED + "❌ Evento no encontrado.")
+                return
+
+            print(Fore.CYAN + f"\nClonando: '{original_event.title}'")
+            print(f"Recursos originales: {original_event.resource_ids}")
+            
+            # 1. Solicitar nueva fecha
+            print(Fore.YELLOW + "Ingresa la nueva fecha para la copia:")
+            start_str = input("Nuevo Inicio (YYYY-MM-DD HH:MM): ")
+            
+            try:
+                new_start = datetime.strptime(start_str, "%Y-%m-%d %H:%M")
+                
+                # Calcular fin basado en la duración original
+                duration = original_event.end_time - original_event.start_time
+                new_end = new_start + duration
+                
+                print(f"Nuevo Fin calculado: {new_end.strftime('%Y-%m-%d %H:%M')} (Duración: {duration})")
+
+                # 2. Validar Conflictos en la nueva fecha
+                print(Fore.YELLOW + "🔍 Verificando disponibilidad...")
+                conflict = self.conflict_checker.check_multiple_resources_conflict(
+                    original_event.resource_ids, new_start, new_end
+                )
+                
+                if conflict['has_conflict']:
+                    print(Fore.RED + "\n⛔ IMPOSIBLE CLONAR: Recursos ocupados en el nuevo horario.")
+                    print(f"Detalles: {conflict.get('conflicts')}")
+                    return
+
+                # 3. Validar Restricciones (por si las reglas cambiaron desde el original)
+                violations = self.constraint_service.validate_resources(original_event.resource_ids)
+                if violations:
+                    print(Fore.RED + "\n⛔ REGLAS VIOLADAS:")
+                    return
+
+                # 4. Crear el nuevo objeto Evento
+                cloned_event = Event(
+                    title=f"{original_event.title} (Copia)",
+                    description=original_event.description,
+                    start_time=new_start,
+                    end_time=new_end,
+                    resource_ids=original_event.resource_ids,
+                    created_by="admin_clone"
+                )
+
+                created = self.event_service.create_event(cloned_event)
+                if created:
+                    print(Fore.GREEN + f"\n✅ Evento clonado exitosamente (ID: {created.id})")
+                else:
+                    print(Fore.RED + "❌ Error al guardar copia.")
+
+            except ValueError:
+                print(Fore.RED + "❌ Formato de fecha inválido.")
+
+        except Exception as e:
+            print(Fore.RED + f"❌ Error: {e}")
+    
+    def view_reports_ui(self):
+        print(Fore.MAGENTA + "\n📊 REPORTE DE UTILIZACIÓN")
+        print("Estadísticas de uso de recursos (Eventos 'Scheduled')")
+        
+        stats = self.resource_service.get_utilization_stats()
+        
+        if not stats:
+            print("No hay datos suficientes.")
+            return
+
+        data = []
+        for s in stats:
+            # Convertir minutos a Horas:Minutos para mejor lectura
+            mins = int(s['total_minutes'])
+            hours = mins // 60
+            minutes = mins % 60
+            time_str = f"{hours}h {minutes}m"
+            
+            # Barra gráfica simple en consola
+            bar_length = int(mins / 60) # 1 caracter por hora
+            bar = "█" * bar_length if bar_length > 0 else "▏"
+            if len(bar) > 20: bar = bar[:20] + "+"
+            
+            data.append([
+                s['name'], 
+                s['resource_type'], 
+                s['total_events'], 
+                time_str,
+                Fore.BLUE + bar + Style.RESET_ALL
+            ])
+            
+        print(tabulate(data, headers=["Recurso", "Tipo", "Eventos", "Tiempo Total", "Uso Gráfico"], tablefmt="simple"))
 
     def run(self):
         while True:
-            # self.clear_screen()
             self.print_header()
             print("1. 📅 Ver Eventos")
-            print("2. ➕ Crear Evento (Con validaciones)")
-            print("3. 📦 Ver Recursos")
-            print("4. ➕ Crear Recurso")
-            print(Fore.MAGENTA + "5. ⛓️  Gestionar Restricciones/Reglas") # Nueva opción
-            print(Style.RESET_ALL + "6. 🔧 Inicializar/Resetear Base de Datos")
+            print("2. ➕ Crear Evento")
+            print("3. ✏️  Editar Evento")
+            print("4. 🐑 Clonar Evento")      # <--- NUEVO
+            print("5. 🚫 Cancelar Evento")
+            print("-" * 25)
+            print("6. 📦 Ver Recursos")
+            print("7. ➕ Crear Recurso")
+            print("8. ⛓️  Gestionar Restricciones")
+            print(Fore.MAGENTA + "9. 📊 Ver Reportes de Uso") # <--- NUEVO
+            print("-" * 25)
+            print("10. 🔧 Resetear DB")
             print("0. 🚪 Salir")
             
-            choice = input("\n👉 Selecciona una opción: ")
+            choice = input("\n👉 Opción: ")
 
-            if choice == '1':
-                self.view_events()
-            elif choice == '2':
-                self.create_event()
-            elif choice == '3':
-                self.view_resources()
-            elif choice == '4':
-                self.create_resource()
-            elif choice == '5':
-                self.manage_constraints()
-            elif choice == '6':
-                confirm = input("¿Seguro? Esto borrará datos existentes si recrea tablas (s/n): ")
-                if confirm.lower() == 's':
-                    init_db()
-            elif choice == '0':
-                print("¡Hasta luego!")
-                break
-            else:
-                print(Fore.RED + "Opción inválida.")
+            if choice == '1': self.view_events()
+            elif choice == '2': self.create_event()
+            elif choice == '3': self.edit_event_ui()
+            elif choice == '4': self.clone_event_ui()    # <--- LLAMADA
+            elif choice == '5': self.cancel_event_ui()
+            elif choice == '6': self.view_resources()
+            elif choice == '7': self.create_resource()
+            elif choice == '8': self.manage_constraints()
+            elif choice == '9': self.view_reports_ui()   # <--- LLAMADA
+            elif choice == '10':
+                if input("¿Seguro? (s/n): ").lower() == 's': init_db()
+            elif choice == '0': break
+            else: print(Fore.RED + "Opción inválida.")
             
-            input(Fore.BLUE + "\nPresiona ENTER para continuar...")
+            input(Fore.BLUE + "\nPresiona ENTER...")
 
 if __name__ == "__main__":
     try:
         app = EventManagerApp()
         app.run()
     except Exception as e:
-        print(f"Error crítico al iniciar: {e}")
-        print("Asegúrate de haber configurado el archivo .env y ejecutado initialize.py")
+        print(f"Error crítico: {e}")

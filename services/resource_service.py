@@ -337,5 +337,30 @@ if IMPORT_SUCCESS:
             except Exception as e:
                 logger.error(f"❌ Error al obtener estadísticas: {e}")
                 return {'error': str(e)}
+            
+        def get_utilization_stats(self) -> List[Dict[str, Any]]:
+        
+            try:
+                # Query analítica agrupada
+                query = """
+                    SELECT 
+                        r.id, 
+                        r.name, 
+                        r.resource_type,
+                        COUNT(er.event_id) as total_events,
+                        COALESCE(SUM(TIMESTAMPDIFF(MINUTE, e.start_time, e.end_time)), 0) as total_minutes
+                    FROM resources r
+                    LEFT JOIN event_resources er ON r.id = er.resource_id
+                    LEFT JOIN events e ON er.event_id = e.id AND e.status = 'scheduled'
+                    GROUP BY r.id, r.name, r.resource_type
+                    ORDER BY total_minutes DESC
+                """
+                
+                results = self.db.execute_query(query, fetch=True)
+                return results if results else []
+                
+            except Exception as e:
+                logger.error(f"Error generando estadísticas: {e}")
+                return []
 else:
     print("❌ No se pudo inicializar ResourceService debido a errores de importación")
