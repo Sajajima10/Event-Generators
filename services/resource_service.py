@@ -51,7 +51,7 @@ if IMPORT_SUCCESS:
                     resource.created_at or datetime.now()
                 )
                 
-                resource_id = self.db.execute_query(query, params)
+                resource_id = self.db.execute_query(query, params, fetch=True)
                 
                 if resource_id:
                     resource.id = resource_id

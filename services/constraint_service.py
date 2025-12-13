@@ -48,7 +48,7 @@ if IMPORT_SUCCESS:
                     constraint.created_at or datetime.now()
                 )
                 
-                constraint_id = self.db.execute_query(query, params)
+                constraint_id = self.db.execute_query(query, params, fetch=True)
                 
                 if constraint_id:
                     constraint.id = constraint_id

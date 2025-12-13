@@ -36,7 +36,7 @@ class EventService:
                 event.updated_at
             )
             
-            event_id = self.db.execute_query(query, params)
+            event_id = self.db.execute_query(query, params, fetch=True)
             
             if event_id:
                 event.id = event_id
