@@ -4,6 +4,11 @@ from datetime import datetime, timedelta
 from tabulate import tabulate
 from colorama import init, Fore, Style
 
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+
+sys.path.insert(0, parent_dir)
+
 from database.initialize import main as init_db
 from services.event_service import EventService
 from services.resource_service import ResourceService
